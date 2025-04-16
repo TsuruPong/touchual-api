@@ -6,7 +6,10 @@
     "outDir": "dist",
     "esModuleInterop": true,
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "typeRoots": ["node_modules/manimani/src/types"],
+    "types": ["manimani"]
   },
-  "include": ["src"]
+  "include": ["src", "**/*.d.ts"],
+  "exclude": ["node_modules"]
 }
