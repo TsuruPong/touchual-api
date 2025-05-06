@@ -15,7 +15,7 @@ type MoraNodeWithStatus =  MoraNode & {
     status: Status;
 }
 
-const client = new DynamoDBClient({region: "ap-noatheast-1"});
+const client = new DynamoDBClient({region: "ap-northeast-3"});
 const getTypingThemeResolver = async(args: {id: number, level: number, difficulty: number}) => {
     const group = Math.round(args.difficulty * 10) / 10;
     const params: QueryCommandInput = {
