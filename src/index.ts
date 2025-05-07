@@ -15,11 +15,12 @@ type MoraNodeWithStatus =  MoraNode & {
     status: Status;
 }
 
-const client = new DynamoDBClient({region: "ap-northeast-3"});
+const region = process.env.REGION ?? "ap-northeast-3";
+const client = new DynamoDBClient({region});
 const getTypingThemeResolver = async(args: {id: number, level: number, difficulty: number}) => {
     const group = Math.round(args.difficulty * 10) / 10;
     const params: QueryCommandInput = {
-        TableName: "sentence",
+        TableName: "Sentence",
         KeyConditionExpression: "#level = :level AND difficult_group = :difficult_group",
         FilterExpression: "#id <> :id",
         ExpressionAttributeNames: {
@@ -38,17 +39,38 @@ const getTypingThemeResolver = async(args: {id: number, level: number, difficult
 
     try {
         const data = await client.send(new QueryCommand(params));
+        if (!data.Items || data.Items.length == 0) throw new Error("result 0");
 
-        // TODO difficultに近い値を一件取得
-        // TODO morawithstatusに変換
-        // TODO レスポンスの生成
-        // TODO テーブルの作成と初期データの投入方法を考える
+        const close = data.Items.reduce((a, b) => {
+            const diffA = Number(a.difficult.N ?? "0");
+            const diffB = Number(b.difficult.N ?? "0");
+            return Math.abs(diffB - args.difficulty) < Math.abs(diffA - args.difficulty) ? b : a;
+        })
 
-        return { id: 1, text: "", ruby: "row.ruby", moras: {} };
-    } catch(err) {
-        // TODO レスポンスの生成
+        const id = close.id.N;
+        const level = close.level.N;
+        const difficult = close.difficult.N;
+        const text = close.text.S;
+        const ruby = close.ruby.S;
+        if (!id || !level || !difficult || !text || !ruby) throw new Error(`missing value: id=${id}, level=${level}, difficult=${difficult}, text=${text}, ruby=${ruby}`);
+        const moras = await toTokens({ text, ruby });
+        const withStatus = toMoraWithStatus(moras);
+
         return {
-            status: 500
+            status: 200,
+            body: {
+                id,
+                text,
+                ruby,
+                moras: JSON.stringify(withStatus)
+            }
+        };
+    } catch(err) {
+        return {
+            status: 500,
+            body: {
+                err
+            }
         }
     }
 
