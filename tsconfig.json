@@ -7,8 +7,8 @@
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
-    "typeRoots": ["node_modules/@types", "node_modules/manimani/src/types"],
-    "types": ["node", "manimani"],
+    "typeRoots": ["node_modules/@types"],
+    "types": ["node"],
     "paths": {
       "@/*": ["./src/*"]
     },
