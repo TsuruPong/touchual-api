@@ -4,10 +4,13 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
+    "build": "tsc",
+    "zip": "bestzip apollo.zip dist/ node_modules",
+    "packing": "npm-run-all --serial build zip",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "TsuruPong",
   "license": "MIT",
   "dependencies": {
     "@apollo/client": "^3.13.7",
@@ -20,6 +23,8 @@
     "manimani": "^1.2.0"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.149"
+    "@types/aws-lambda": "^8.10.149",
+    "bestzip": "^2.2.1",
+    "npm-run-all": "^4.1.5"
   }
 }
