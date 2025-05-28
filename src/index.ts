@@ -16,11 +16,12 @@ type MoraNodeWithStatus =  MoraNode & {
 }
 
 const region = process.env.REGION ?? "ap-northeast-3";
+const TableName = process.env.SENTENCE_TABLE_NAME ?? "Sentence-dev"
 const client = new DynamoDBClient({region});
 const getTypingThemeResolver = async(args: {id: number, level: number, difficulty: number}) => {
     const group = Math.round(args.difficulty * 10) / 10;
     const params: QueryCommandInput = {
-        TableName: "Sentence",
+        TableName,
         KeyConditionExpression: "#level = :level AND difficult_group = :difficult_group",
         FilterExpression: "#id <> :id",
         ExpressionAttributeNames: {
