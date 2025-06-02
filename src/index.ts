@@ -2,6 +2,7 @@ import { ApolloServer } from "@apollo/server";
 import { Mora, MoraNode, tokenize } from "manimani";
 import { startServerAndCreateLambdaHandler, handlers } from '@as-integrations/aws-lambda';
 import { DynamoDBClient, QueryCommand, QueryCommandInput } from "@aws-sdk/client-dynamodb";
+import { ApolloServerPluginLandingPageLocalDefault } from "apollo-server-core";
 
 type Status = "correct" | "incorrect" | "unanswered";
 
@@ -40,6 +41,7 @@ const getTypingThemeResolver = async(args: {id: number, level: number, difficult
 
     try {
         const data = await client.send(new QueryCommand(params));
+        console.log("Query Result:", JSON.stringify(data, null, 2));
         if (!data.Items || data.Items.length == 0) throw new Error("result 0");
 
         const close = data.Items.reduce((a, b) => {
@@ -58,23 +60,15 @@ const getTypingThemeResolver = async(args: {id: number, level: number, difficult
         const withStatus = toMoraWithStatus(moras);
 
         return {
-            status: 200,
-            body: {
-                id,
-                text,
-                ruby,
-                moras: JSON.stringify(withStatus)
-            }
+            id,
+            text,
+            ruby,
+            moras: JSON.stringify(withStatus)
         };
-    } catch(err) {
-        return {
-            status: 500,
-            body: {
-                err
-            }
-        }
+    } catch (err) {
+        console.error("getTypingTheme error:", err);
+        throw new Error("Failed to get typing theme.");
     }
-
 }
 
 const toTokens = async(sentence: { text: string, ruby: string }): Promise<Mora[]> => {
