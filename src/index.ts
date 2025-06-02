@@ -60,7 +60,7 @@ const getTypingThemeResolver = async(args: {id: number, level: number, difficult
         const withStatus = toMoraWithStatus(moras);
 
         return {
-            id,
+            id: parseInt(id),
             text,
             ruby,
             moras: JSON.stringify(withStatus)
