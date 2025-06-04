@@ -59,17 +59,17 @@ const getTypingThemeResolver = async(args: {id: number, level: number, difficult
         if (!data.Items || data.Items.length == 0) throw new Error("result 0");
 
         const close = data.Items.reduce((a, b) => {
-            const diffA = Number(a.difficult.N ?? "0");
-            const diffB = Number(b.difficult.N ?? "0");
+            const diffA = Number(a.difficulty.N ?? "0");
+            const diffB = Number(b.difficulty.N ?? "0");
             return Math.abs(diffB - args.difficulty) < Math.abs(diffA - args.difficulty) ? b : a;
         })
 
         const id = close.id.N;
         const level = close.level.N;
-        const difficult = close.difficult.N;
+        const difficulty = close.difficulty.N;
         const text = close.text.S;
         const ruby = close.ruby.S;
-        if (!id || !level || !difficult || !text || !ruby) throw new Error(`missing value: id=${id}, level=${level}, difficult=${difficult}, text=${text}, ruby=${ruby}`);
+        if (!id || !level || !difficulty || !text || !ruby) throw new Error(`missing value: id=${id}, level=${level}, difficult=${difficulty}, text=${text}, ruby=${ruby}`);
         const moras = await toTokens({ text, ruby });
         const withStatus = toMoraWithStatus(moras);
 
