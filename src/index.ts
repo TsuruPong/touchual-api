@@ -2,7 +2,6 @@ import { ApolloServer } from "@apollo/server";
 import { Mora, MoraNode, tokenize } from "manimani";
 import { startServerAndCreateLambdaHandler, handlers } from '@as-integrations/aws-lambda';
 import { DynamoDBClient, QueryCommand, QueryCommandInput } from "@aws-sdk/client-dynamodb";
-import { ApolloServerPluginLandingPageLocalDefault } from "apollo-server-core";
 
 type Status = "correct" | "incorrect" | "unanswered";
 
@@ -20,6 +19,9 @@ const region = process.env.REGION ?? "ap-northeast-3";
 const TableName = process.env.SENTENCE_TABLE_NAME ?? "Sentence-dev"
 const client = new DynamoDBClient({region});
 const getTypingThemeResolver = async(args: {id: number, level: number, difficulty: number}) => {
+
+    console.log(`id = ${args.id}, level = ${args.level}, difficulty = ${args.difficulty}`);
+
     const group = Math.round(args.difficulty * 10) / 10;
 
     const expressionAttributeNames: Record<string, string> = {
@@ -34,7 +36,7 @@ const getTypingThemeResolver = async(args: {id: number, level: number, difficult
 
     let filterExpression: string | undefined;
 
-    if (args.id) {
+    if (args.id !== undefined && args.id !== null) {
         expressionAttributeNames["#id"] = "id";
         expressionAttributeValues[":id"] = { S: args.id.toString() };
         filterExpression = "#id <> :id";
