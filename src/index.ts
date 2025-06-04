@@ -25,31 +25,32 @@ const getTypingThemeResolver = async(args: {id: number, level: number, difficult
     const group = Math.round(args.difficulty * 10) / 10;
 
     const expressionAttributeNames: Record<string, string> = {
-    "#level": "level",
-    "#difficult_group": "difficult_group",
+        "#level": "level",
+        "#difficult_group": "difficult_group",
     };
 
-    const expressionAttributeValues: Record<string, { S: string }> = {
-    ":level": { S: args.level.toString() },
-    ":difficult_group": { S: group.toString() },
+    const expressionAttributeValues: Record<string, { N: string }> = {
+        ":level": { N: args.level.toString() },
+        ":difficult_group": { N: group.toString() },
     };
 
     let filterExpression: string | undefined;
 
     if (args.id !== undefined && args.id !== null) {
         expressionAttributeNames["#id"] = "id";
-        expressionAttributeValues[":id"] = { S: args.id.toString() };
+        expressionAttributeValues[":id"] = { N: args.id.toString() };
         filterExpression = "#id <> :id";
     }
 
     const params: QueryCommandInput = {
-    TableName,
-    KeyConditionExpression: "#level = :level AND #difficult_group = :difficult_group",
-    ExpressionAttributeNames: expressionAttributeNames,
-    ExpressionAttributeValues: expressionAttributeValues,
-    ...(filterExpression && { FilterExpression: filterExpression }),
-    Limit: 100,
-    ScanIndexForward: true,
+        TableName,
+        IndexName: "level_difficult",
+        KeyConditionExpression: "#level = :level AND #difficult_group = :difficult_group",
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: expressionAttributeValues,
+        ...(filterExpression && { FilterExpression: filterExpression }),
+        Limit: 100,
+        ScanIndexForward: true,
     };
 
     try {
