@@ -21,23 +21,34 @@ const TableName = process.env.SENTENCE_TABLE_NAME ?? "Sentence-dev"
 const client = new DynamoDBClient({region});
 const getTypingThemeResolver = async(args: {id: number, level: number, difficulty: number}) => {
     const group = Math.round(args.difficulty * 10) / 10;
-    const params: QueryCommandInput = {
-        TableName,
-        KeyConditionExpression: "#level = :level AND difficult_group = :difficult_group",
-        FilterExpression: "#id <> :id",
-        ExpressionAttributeNames: {
-            "#level": "level",
-            "#difficult_group": "difficult_group",
-            "#id": "id"
-        },
-        ExpressionAttributeValues: {
-            ":level": { S: args.level.toString() },
-            ":difficult_group": { S: group.toString() },
-            ":id": { S: args.id.toString() }
-          },
-        Limit: 100,
-        ScanIndexForward: true
+
+    const expressionAttributeNames: Record<string, string> = {
+    "#level": "level",
+    "#difficult_group": "difficult_group",
+    };
+
+    const expressionAttributeValues: Record<string, { S: string }> = {
+    ":level": { S: args.level.toString() },
+    ":difficult_group": { S: group.toString() },
+    };
+
+    let filterExpression: string | undefined;
+
+    if (args.id) {
+        expressionAttributeNames["#id"] = "id";
+        expressionAttributeValues[":id"] = { S: args.id.toString() };
+        filterExpression = "#id <> :id";
     }
+
+    const params: QueryCommandInput = {
+    TableName,
+    KeyConditionExpression: "#level = :level AND #difficult_group = :difficult_group",
+    ExpressionAttributeNames: expressionAttributeNames,
+    ExpressionAttributeValues: expressionAttributeValues,
+    ...(filterExpression && { FilterExpression: filterExpression }),
+    Limit: 100,
+    ScanIndexForward: true,
+    };
 
     try {
         const data = await client.send(new QueryCommand(params));
