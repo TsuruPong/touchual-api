@@ -55,7 +55,8 @@ const getTypingThemeResolver = async(args: {id: number, level: number, difficult
 
     try {
         const data = await client.send(new QueryCommand(params));
-        console.log("Query Result:", JSON.stringify(data, null, 2));
+        console.log(`Query Result: ${JSON.stringify(data, null, 2)}`);
+
         if (!data.Items || data.Items.length == 0) throw new Error("result 0");
 
         const close = data.Items.reduce((a, b) => {
@@ -72,6 +73,8 @@ const getTypingThemeResolver = async(args: {id: number, level: number, difficult
         if (!id || !level || !difficulty || !text || !ruby) throw new Error(`missing value: id=${id}, level=${level}, difficult=${difficulty}, text=${text}, ruby=${ruby}`);
         const moras = await toTokens({ text, ruby });
         const withStatus = toMoraWithStatus(moras);
+        
+        console.log(`moras : ${withStatus}`);
 
         return {
             id: parseInt(id),
