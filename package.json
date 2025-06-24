@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --minify",
     "zip": "bestzip apollo.zip dist/ node_modules",
     "packing": "npm-run-all --serial build zip",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -13,6 +13,7 @@
   "author": "TsuruPong",
   "license": "MIT",
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.835.0",
     "aws-lambda": "^1.0.7",
     "graphql": "^16.11.0",
     "manimani": "^1.2.0"
