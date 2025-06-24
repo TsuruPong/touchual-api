@@ -1,157 +1,71 @@
-import { ApolloServer } from "@apollo/server";
-import { Mora, MoraNode, tokenize } from "manimani";
-import { startServerAndCreateLambdaHandler, handlers } from '@as-integrations/aws-lambda';
-import { DynamoDBClient, QueryCommand, QueryCommandInput } from "@aws-sdk/client-dynamodb";
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
+import { graphql, GraphQLSchema } from "graphql";
+import { schema } from "./schema";
+import { resolver } from "./resolver";
 
-type Status = "correct" | "incorrect" | "unanswered";
+const allowOrigins = (process.env.ALLOW_ORIGINS || "").split(",");
 
-type MoraWithStatus =  Mora & {
-    node: MoraNodeWithStatus[];
-    status: Status;
-}
+export const handler = async (
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> => {
+  const origin = event.headers.origin || "";
+  const isAllow = allowOrigins.includes(origin);
 
-type MoraNodeWithStatus =  MoraNode & {
-    children: MoraNodeWithStatus[];
-    status: Status;
-}
-
-const region = process.env.REGION ?? "ap-northeast-3";
-const TableName = process.env.SENTENCE_TABLE_NAME ?? "Sentence-dev"
-const client = new DynamoDBClient({region});
-const getTypingThemeResolver = async(args: {id: number, level: number, difficulty: number}) => {
-
-    console.log(`id = ${args.id}, level = ${args.level}, difficulty = ${args.difficulty}`);
-
-    const group = Math.round(args.difficulty * 10) / 10;
-
-    const expressionAttributeNames: Record<string, string> = {
-        "#level": "level",
-        "#difficult_group": "difficult_group",
+  // CORS Preflight (OPTIONS)
+  if (event.requestContext.http.method === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": isAllow ? origin : "",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Credentials": "true"
+      },
+      body: ""
     };
+  }
 
-    const expressionAttributeValues: Record<string, { N: string }> = {
-        ":level": { N: args.level.toString() },
-        ":difficult_group": { N: group.toString() },
+  let body;
+  try {
+    body = typeof event.body === "string" ? JSON.parse(event.body) : event.body;
+  } catch (err) {
+    return {
+      statusCode: 400,
+      headers: corsHeaders(isAllow, origin),
+      body: JSON.stringify({ error: "Invalid JSON body" })
     };
+  }
 
-    let filterExpression: string | undefined;
+  const { query, variables, operationName } = body;
 
-    if (args.id !== undefined && args.id !== null) {
-        expressionAttributeNames["#id"] = "id";
-        expressionAttributeValues[":id"] = { N: args.id.toString() };
-        filterExpression = "#id <> :id";
-    }
-
-    const params: QueryCommandInput = {
-        TableName,
-        IndexName: "level_difficult",
-        KeyConditionExpression: "#level = :level AND #difficult_group = :difficult_group",
-        ExpressionAttributeNames: expressionAttributeNames,
-        ExpressionAttributeValues: expressionAttributeValues,
-        ...(filterExpression && { FilterExpression: filterExpression }),
-        Limit: 100,
-        ScanIndexForward: true,
-    };
-
-    try {
-        const data = await client.send(new QueryCommand(params));
-        console.log(`Query Result: ${JSON.stringify(data, null, 2)}`);
-
-        if (!data.Items || data.Items.length == 0) throw new Error("result 0");
-
-        const close = data.Items.reduce((a, b) => {
-            const diffA = Number(a.difficulty.N ?? "0");
-            const diffB = Number(b.difficulty.N ?? "0");
-            return Math.abs(diffB - args.difficulty) < Math.abs(diffA - args.difficulty) ? b : a;
-        })
-
-        const id = close.id.N;
-        const level = close.level.N;
-        const difficulty = close.difficulty.N;
-        const text = close.text.S;
-        const ruby = close.ruby.S;
-        if (!id || !level || !difficulty || !text || !ruby) throw new Error(`missing value: id=${id}, level=${level}, difficult=${difficulty}, text=${text}, ruby=${ruby}`);
-        const moras = await toTokens({ text, ruby });
-        const withStatus = toMoraWithStatus(moras);
-        
-        console.log(`moras : ${withStatus}`);
-
-        return {
-            id: parseInt(id),
-            text,
-            ruby,
-            moras: JSON.stringify(withStatus)
-        };
-    } catch (err) {
-        console.error("getTypingTheme error:", err);
-        throw new Error("Failed to get typing theme.");
-    }
-}
-
-const toTokens = async(sentence: { text: string, ruby: string }): Promise<Mora[]> => {
-    return await new Promise(resolve => {
-        const dictionaryDir = process.env.DICTIONARY_DIR;
-        if (!dictionaryDir) {
-            throw new Error("DICTIONARY_DIR environment variable is not set.");
-        }
-        tokenize(dictionaryDir, sentence.ruby, (moras: Mora[]) => {
-            resolve(moras);
-        })
+  try {
+    const result = await graphql({
+      schema: schema as GraphQLSchema,
+      source: query,
+      variableValues: variables,
+      operationName,
+      rootValue: {
+        getTypingTheme: resolver.theme
+      }
     });
+
+    return {
+      statusCode: 200,
+      headers: corsHeaders(isAllow, origin),
+      body: JSON.stringify(result)
+    };
+  } catch (err) {
+    console.error("GraphQL Execution Error", err);
+    return {
+      statusCode: 500,
+      headers: corsHeaders(isAllow, origin),
+      body: JSON.stringify({ error: "Internal Server Error" })
+    };
+  }
 };
 
-const toMoraWithStatus = (moras: Mora[]): MoraWithStatus[] => {
-    return moras.map((mora) => ({
-        ...mora,
-        status: "unanswered",
-        node: toMoraNodeWithStatus(mora.node)
-    }));
-};
-
-const toMoraNodeWithStatus = (nodes: MoraNode[]): MoraNodeWithStatus[] => {
-    return nodes.map((node) => ({
-        ...node,
-        status: "unanswered",
-        children: toMoraNodeWithStatus(node.children)
-    }));
-};
-
-const resolvers = {
-	Query: {
-        getTypingTheme: async(_: any, args: { id: number, level: number, difficulty: number }) => {
-            return getTypingThemeResolver(args);
-       }
-	}
-};
-
-const typeDefs = `#graphql
-    type TypingTheme {
-        id: Int!
-        text: String!
-        ruby: String!
-        moras: String!
-    }
-
-    type Query {
-        getTypingTheme(id: Int, level: Int!, difficulty: Float!): TypingTheme
-    }
-
-    query getTypingTheme($id: Int, $level: Int!, $difficulty: Float!) {
-        getTypingTheme(id: $id, level: $level, difficulty: $difficulty) {
-            id
-            text
-            ruby
-            moras
-        }
-    }
-`;
-
-const server = new ApolloServer({
-	typeDefs,
-	resolvers
+const corsHeaders = (isAllow: boolean, origin: string) => ({
+  "Access-Control-Allow-Origin": isAllow ? origin : "",
+  "Access-Control-Allow-Credentials": "true",
+  "Content-Type": "application/json"
 });
-
-export const graphqlHandler = startServerAndCreateLambdaHandler(
-  server,
-  handlers.createAPIGatewayProxyEventV2RequestHandler()
-);
