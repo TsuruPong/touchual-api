@@ -5,7 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --minify",
-    "zip": "bestzip zip/api.zip dist/ node_modules",
+    "zip": "bestzip zip/api.zip dist/* node_modules",
     "packing": "npm-run-all --serial build zip",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
